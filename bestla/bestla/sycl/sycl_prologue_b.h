@@ -378,7 +378,7 @@ class WeightS4Trans {
       auto ev = q->submit([&](sycl::handler& cgh) {
         cgh.parallel_for(sycl::nd_range<1>(problem, group),
                          [=](sycl::nd_item<1> it) [[sycl::reqd_work_group_size(
-                             1, 1, SgSize)]] [[intel::kernel_args_restrict]] [[intel::reqd_sub_group_size(SgSize)]] {
+                             SgSize)]] [[intel::kernel_args_restrict]] [[intel::reqd_sub_group_size(SgSize)]] {
                            int g_idx = it.get_group(0);
                            auto sg = it.get_sub_group();
                            int sg_id = sg.get_local_id()[0];
@@ -459,7 +459,7 @@ class WeightS4Trans {
         cgh.parallel_for(
             sycl::nd_range<1>(problem, group),
             [=](sycl::nd_item<1> it) [[sycl::reqd_work_group_size(
-                1, 1, SgSize)]] [[intel::kernel_args_restrict]] [[intel::reqd_sub_group_size(SgSize)]] {
+                SgSize)]] [[intel::kernel_args_restrict]] [[intel::reqd_sub_group_size(SgSize)]] {
               int g_idx = it.get_group(0);
               auto sg = it.get_sub_group();
               int sg_id = sg.get_local_id()[0];

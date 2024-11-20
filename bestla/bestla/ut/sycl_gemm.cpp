@@ -2,301 +2,12 @@
 #include "sycl_ut.h"
 #include "../sycl/sycl_wrapper.h"
 #include "bestla_prologue_b.h"
-#undef BTLA_UT_SYCL
 namespace bestla {
 using namespace ut;
 using namespace utils;
 using namespace sycl_utils;
 using namespace sycl_gemm;
 namespace sycl_ut {
-class UT_SyclSGemm {
- public:
-  UT_SyclSGemm() {
-    UT_START();
-    ut(1, 1024, 1024);
-    ut(300, 1024, 1024);
-    ut(1024, 1024, 1024);
-  }
-  using SGemmT = xve::DefaultSGemmCore;
-  template <class GCT>
-  using ProAT = sycl_prologue_a::ActivationBase<GCT, float>;
-  template <class GCT>
-  using ProBT = sycl_prologue_b::WeightBase<GCT, float>;
-  template <class GCT>
-  using EpiT = sycl_epilogue::OutputBase<GCT, float>;
-  using KernelLauncher = sycl_wrapper::Launcher<ProAT, ProBT, EpiT, SGemmT>;
-
-  void ut(int m, int n, int k) {
-    auto dev = UT_Device::get();
-    auto q = dev->getQueue();
-    printf("Test Case: %d %d %d Device:%s\n", m, n, k, dev->getName().c_str());
-    avector<float> matA(m * k), matB(k * n), matC(m * n), ref(m * n);
-    fill_buffer_randn(matA.data(), matA.size(), -0.5f, 0.5f);
-    fill_buffer_randn(matB.data(), matB.size(), -0.5f, 0.5f);
-    gemmref_fp32fp32fp32(m, n, k, matA.data(), matB.data(), ref.data(), k, n, n);
-    sycl_vector<float> dA(matA.size(), q), dB(matB.size(), q), dC(matC.size(), q);
-    q->memcpy(dA.data(), matA.data(), matA.size() * 4).wait();
-    q->memcpy(dB.data(), matB.data(), matB.size() * 4).wait();
-    auto A_d = dA.data();
-    auto B_d = dB.data();
-    auto C_d = dC.data();
-    auto ev = KernelLauncher::compute(q, m, n, k, {{A_d, k}, {B_d, n}, {C_d, n}});
-    ev.wait();
-    q->memcpy(matC.data(), C_d, matC.size() * 4).wait();
-    buffer_error(ref.data(), matC.data(), ref.size(), 0.001f);
-  }
-};
-#ifdef BTLA_UT_SYCL
-static UT_SyclSGemm sUT_SyclSGemm;
-#endif
-
-class UT_SyclHGemm {
- public:
-  UT_SyclHGemm() {
-    UT_START();
-    ut(1, 1024, 1024);
-    ut(300, 1024, 1024);
-    ut(1024, 1024, 1024);
-    ut(1033, 1024, 1024);
-  }
-  using SGemmT = xve::DefaultHGemmCore;
-  template <class GCT>
-  using ProAT = sycl_prologue_a::ActivationBase<GCT, sycl::half>;
-  template <class GCT>
-  using ProBT = sycl_prologue_b::WeightBase<GCT, sycl::half>;
-  template <class GCT>
-  using EpiT = sycl_epilogue::OutputBase<GCT, sycl::half>;
-  using KernelLauncher = sycl_wrapper::Launcher<ProAT, ProBT, EpiT, SGemmT>;
-
-  void ut(int m, int n, int k) {
-    auto dev = UT_Device::get();
-    auto q = dev->getQueue();
-    printf("Test Case: %d %d %d Device:%s\n", m, n, k, dev->getName().c_str());
-    avector<utils::fp16> matA(m * k), matB(k * n), matC(m * n), ref(m * n);
-    fill_buffer_randn(matA.data(), matA.size(), utils::fp16(-0.5f), utils::fp16(0.5f));
-    fill_buffer_randn(matB.data(), matB.size(), utils::fp16(-0.5f), utils::fp16(0.5f));
-    gemmref_fp16fp16fp16(m, n, k, matA.data(), matB.data(), ref.data(), k, n, n);
-
-    sycl_vector<sycl::half> dA(matA.size(), q), dB(matB.size(), q), dC(matC.size(), q);
-    q->memcpy(dA.data(), matA.data(), matA.size() * 2).wait();
-    q->memcpy(dB.data(), matB.data(), matB.size() * 2).wait();
-    auto A_d = dA.data();
-    auto B_d = dB.data();
-    auto C_d = dC.data();
-    auto ev = KernelLauncher::compute(q, m, n, k, {{A_d, k}, {B_d, n}, {C_d, n}});
-    ev.wait();
-    q->memcpy(matC.data(), C_d, matC.size() * 2).wait();
-    buffer_error(ref.data(), matC.data(), ref.size(), utils::fp16(0.2f));
-  }
-};
-#ifdef BTLA_UT_SYCL
-static UT_SyclHGemm sUT_SyclHGemm;
-#endif
-
-class UT_SyclS4SGemm {
- public:
-  UT_SyclS4SGemm() {
-    UT_START();
-    utT(6, 4096, 11008, 128);
-    ut(6, 32000, 4096, 128);
-    utT(6, 32000, 4096, 128);
-    ut(300, 1024, 1024, 32);
-    ut(1024, 1024, 1024, 32);
-    utT(1024, 1024, 1024, 32);
-  }
-  using SGemm_t = xve::DefaultSGemmCore;
-  template <class GCT>
-  using ProAT = sycl_prologue_a::ActivationBase<GCT, float>;
-  template <class GCT>
-  using ProBT = sycl_prologue_b::WeightS4<GCT, float>;
-  template <class GCT>
-  using ProBTransT = sycl_prologue_b::WeightS4Trans<GCT, float>;
-  template <class GCT>
-  using EpiT = sycl_epilogue::OutputBase<GCT, float>;
-  using KernelLauncher = sycl_wrapper::LauncherWOQ<ProAT, ProBT, EpiT, SGemm_t>;
-  using KernelTLauncher = sycl_wrapper::LauncherWOQ<ProAT, ProBTransT, EpiT, SGemm_t>;
-
-  void ut(int m, int n, int k, int blocksize) {
-    auto dev = UT_Device::get();
-    auto q = dev->getQueue();
-    printf("Test Case: %d %d %d Device:%s\n", m, n, k, dev->getName().c_str());
-    avector<float> matA(m * k), matB(k * n), matC(m * n), ref(m * n);
-    fill_buffer_randn(matA.data(), matA.size(), -0.5f, 0.5f);
-    int blks = k / blocksize;
-    avector<float> B_scale(size_t(blks) * n);
-    avector<uint8_t> B_s8(k * n / 2);
-    fill_buffer_randn(B_s8.data(), B_s8.size(), uint8_t(0), uint8_t(255));
-    fill_buffer_randn(B_scale.data(), B_scale.size(), 0.001f, 0.005f);
-    auto srcptr = (utils::int4x2*)B_s8.data();
-    for (int i = 0; i < k; i++) {
-      for (int j = 0; j < n; j += 2) {
-        auto tmp = srcptr[i * n / 2 + j / 2];
-        auto noffset = i / blocksize * n + j;
-        matB[i * n + j + 0] = static_cast<float>(static_cast<int8_t>(tmp.x) - 8) * B_scale[noffset + 0];
-        matB[i * n + j + 1] = static_cast<float>(static_cast<int8_t>(tmp.y) - 8) * B_scale[noffset + 1];
-      }
-    }
-    gemmref_fp32fp32fp32(m, n, k, matA.data(), matB.data(), ref.data(), k, n, n);
-    sycl_vector<float> dA(matA.size(), q), dB(matB.size(), q), dC(matC.size(), q), dB_scale(B_scale.size(), q);
-    sycl_vector<uint8_t> dBs8(B_s8.size(), q);
-    q->memcpy(dA.data(), matA.data(), matA.size() * 4).wait();
-    q->memcpy(dBs8.data(), B_s8.data(), B_s8.size() * 1).wait();
-    q->memcpy(dB_scale.data(), B_scale.data(), B_scale.size() * 4).wait();
-    sycl::range<2> group{SGemm_t::WgM, SGemm_t::WgN};
-    sycl::range<2> problem{m / SGemm_t::TileM, n / SGemm_t::TileN};
-    auto A_d = dA.data();
-    auto Bs8_d = dBs8.data();
-    auto B_scale_d = dB_scale.data();
-    auto C_d = dC.data();
-    utils::GemmProblem gp(1, m, n, k);
-    auto ev = KernelLauncher::compute(q, m, n, k, blocksize, {{A_d, k}, {Bs8_d, B_scale_d, n}, {C_d, n}});
-    ev.wait();
-    q->memcpy(matC.data(), C_d, matC.size() * 4).wait();
-    buffer_error(ref.data(), matC.data(), ref.size(), 0.001f);
-  }
-
-  void utT(int m, int n, int k, int blocksize) {
-    auto dev = UT_Device::get();
-    auto q = dev->getQueue();
-    printf("Test Case: %d %d %d Device:%s\n", m, n, k, dev->getName().c_str());
-    avector<float> matA(m * k), matB(k * n), matC(m * n), ref(m * n);
-    fill_buffer_randn(matA.data(), matA.size(), -0.5f, 0.5f);
-    int blks = k / blocksize;
-    avector<float> B_scale(size_t(blks) * n);
-    avector<uint8_t> B_s8(k * n / 2);
-    fill_buffer_randn(B_s8.data(), B_s8.size(), uint8_t(0), uint8_t(255));
-    fill_buffer_randn(B_scale.data(), B_scale.size(), 0.001f, 0.005f);
-    auto srcptr = (utils::int4x2*)B_s8.data();
-    for (int i = 0; i < n; i++) {
-      for (int j = 0; j < k; j += 2) {
-        auto tmp = srcptr[i * k / 2 + j / 2];
-        auto noffset = i * blks + j / blocksize;
-        matB[i * k + j + 0] = static_cast<float>(static_cast<int8_t>(tmp.x) - 8) * B_scale[noffset];
-        matB[i * k + j + 1] = static_cast<float>(static_cast<int8_t>(tmp.y) - 8) * B_scale[noffset];
-      }
-    }
-    avector<float> matBNT(k * n);
-    kernel::wrapper::Transpose2D<float>::forward<BTLA_ISA::NoSIMD>(matB.data(), matBNT.data(), n, k, k, n);
-    gemmref_fp32fp32fp32(m, n, k, matA.data(), matBNT.data(), ref.data(), k, n, n);
-    sycl_vector<float> dA(matA.size(), q), dB(matB.size(), q), dC(matC.size(), q), dB_scale(B_scale.size(), q);
-    sycl_vector<uint8_t> dBs8(B_s8.size(), q);
-    q->memcpy(dA.data(), matA.data(), matA.size() * 4).wait();
-    q->memcpy(dBs8.data(), B_s8.data(), B_s8.size() * 1).wait();
-    q->memcpy(dB_scale.data(), B_scale.data(), B_scale.size() * 4).wait();
-    sycl::range<2> group{SGemm_t::WgM, SGemm_t::WgN};
-    sycl::range<2> problem{m / SGemm_t::TileM, n / SGemm_t::TileN};
-    auto A_d = dA.data();
-    auto Bs8_d = dBs8.data();
-    auto B_scale_d = dB_scale.data();
-    auto C_d = dC.data();
-    utils::GemmProblem gp(1, m, n, k);
-    auto ev = KernelTLauncher::compute(q, m, n, k, blocksize, {{A_d, k}, {Bs8_d, B_scale_d, blks}, {C_d, n}});
-    ev.wait();
-    q->memcpy(matC.data(), C_d, matC.size() * 4).wait();
-    buffer_error(ref.data(), matC.data(), ref.size(), 0.001f);
-  }
-};
-#ifdef BTLA_UT_SYCL
-static UT_SyclS4SGemm sUT_SyclS4SGemm;
-#endif
-
-class UT_SyclS4HGemm {
- public:
-  UT_SyclS4HGemm() {
-    UT_START();
-    ut(300, 1024, 1024, 32);
-    ut(1024, 1024, 1024, 32);
-    utT(1024, 1024, 1024, 32);
-  }
-  using GemmT = xve::DefaultHGemmCore;
-  template <class GCT>
-  using ProAT = sycl_prologue_a::ActivationBase<GCT, sycl::half>;
-  template <class GCT>
-  using ProBT = sycl_prologue_b::WeightS4<GCT, sycl::half>;
-  template <class GCT>
-  using ProBTransT = sycl_prologue_b::WeightS4Trans<GCT, sycl::half>;
-  template <class GCT>
-  using EpiT = sycl_epilogue::OutputBase<GCT, sycl::half>;
-  using KernelLauncher = sycl_wrapper::LauncherWOQ<ProAT, ProBT, EpiT, GemmT>;
-  using KernelTLauncher = sycl_wrapper::LauncherWOQ<ProAT, ProBTransT, EpiT, GemmT>;
-
-  void ut(int m, int n, int k, int blocksize) {
-    auto dev = UT_Device::get();
-    auto q = dev->getQueue();
-    printf("Test Case: %d %d %d Device:%s\n", m, n, k, dev->getName().c_str());
-    avector<utils::fp16> matA(m * k), matB(k * n), matC(m * n), ref(m * n);
-    fill_buffer_randn(matA.data(), matA.size(), utils::fp16(-0.5f), utils::fp16(0.5f));
-    int blks = k / blocksize;
-    avector<utils::fp16> B_scale(size_t(blks) * n);
-    avector<uint8_t> B_s8(k * n / 2);
-    fill_buffer_randn(B_s8.data(), B_s8.size(), uint8_t(0), uint8_t(255));
-    fill_buffer_randn(B_scale.data(), B_scale.size(), utils::fp16(0.001f), utils::fp16(0.005f));
-    auto srcptr = (utils::int4x2*)B_s8.data();
-    for (int i = 0; i < k; i++) {
-      for (int j = 0; j < n; j += 2) {
-        auto tmp = srcptr[i * n / 2 + j / 2];
-        auto noffset = i / blocksize * n + j;
-        matB[i * n + j + 0] = static_cast<float>(static_cast<int8_t>(tmp.x) - 8) * float(B_scale[noffset + 0]);
-        matB[i * n + j + 1] = static_cast<float>(static_cast<int8_t>(tmp.y) - 8) * float(B_scale[noffset + 1]);
-      }
-    }
-    gemmref_fp16fp16fp16(m, n, k, matA.data(), matB.data(), ref.data(), k, n, n);
-    sycl_vector<sycl::half> dA(matA.size(), q), dB(matB.size(), q), dC(matC.size(), q), dB_scale(B_scale.size(), q);
-    sycl_vector<uint8_t> dBs8(B_s8.size(), q);
-    q->memcpy(dA.data(), matA.data(), matA.size() * 2).wait();
-    q->memcpy(dBs8.data(), B_s8.data(), B_s8.size() * 1).wait();
-    q->memcpy(dB_scale.data(), B_scale.data(), B_scale.size() * 2).wait();
-    auto A_d = dA.data();
-    auto Bs8_d = dBs8.data();
-    auto B_scale_d = dB_scale.data();
-    auto C_d = dC.data();
-    auto ev = KernelLauncher::compute(q, m, n, k, blocksize, {{A_d, k}, {Bs8_d, B_scale_d, n}, {C_d, n}});
-    ev.wait();
-    q->memcpy(matC.data(), C_d, matC.size() * 2).wait();
-    buffer_error(ref.data(), matC.data(), ref.size(), utils::fp16(0.2f));
-  }
-
-  void utT(int m, int n, int k, int blocksize) {
-    auto dev = UT_Device::get();
-    auto q = dev->getQueue();
-    printf("Test Case: %d %d %d Device:%s\n", m, n, k, dev->getName().c_str());
-    avector<utils::fp16> matA(m * k), matB(k * n), matC(m * n), ref(m * n);
-    fill_buffer_randn(matA.data(), matA.size(), utils::fp16(-0.5f), utils::fp16(0.5f));
-    int blks = k / blocksize;
-    avector<utils::fp16> B_scale(size_t(blks) * n);
-    avector<uint8_t> B_s8(k * n / 2);
-    fill_buffer_randn(B_s8.data(), B_s8.size(), uint8_t(0), uint8_t(255));
-    fill_buffer_randn(B_scale.data(), B_scale.size(), utils::fp16(0.001f), utils::fp16(0.005f));
-    auto srcptr = (utils::int4x2*)B_s8.data();
-    for (int i = 0; i < n; i++) {
-      for (int j = 0; j < k; j += 2) {
-        auto tmp = srcptr[i * k / 2 + j / 2];
-        auto noffset = i * blks + j / blocksize;
-        matB[i * k + j + 0] = static_cast<float>(static_cast<int8_t>(tmp.x) - 8) * float(B_scale[noffset]);
-        matB[i * k + j + 1] = static_cast<float>(static_cast<int8_t>(tmp.y) - 8) * float(B_scale[noffset]);
-      }
-    }
-    avector<utils::fp16> matBNT(k * n);
-    kernel::wrapper::Transpose2D<utils::fp16>::forward<BTLA_ISA::NoSIMD>(matB.data(), matBNT.data(), n, k, k, n);
-    gemmref_fp16fp16fp16(m, n, k, matA.data(), matBNT.data(), ref.data(), k, n, n);
-    sycl_vector<sycl::half> dA(matA.size(), q), dC(matC.size(), q), dB_scale(B_scale.size(), q);
-    sycl_vector<uint8_t> dBs8(B_s8.size(), q);
-    q->memcpy(dA.data(), matA.data(), matA.size() * 2).wait();
-    q->memcpy(dBs8.data(), B_s8.data(), B_s8.size() * 1).wait();
-    q->memcpy(dB_scale.data(), B_scale.data(), B_scale.size() * 2).wait();
-    auto A_d = dA.data();
-    auto Bs8_d = dBs8.data();
-    auto B_scale_d = dB_scale.data();
-    auto C_d = dC.data();
-    auto ev = KernelTLauncher::compute(q, m, n, k, blocksize, {{A_d, k}, {Bs8_d, B_scale_d, blks}, {C_d, n}});
-    ev.wait();
-    q->memcpy(matC.data(), C_d, matC.size() * 2).wait();
-    buffer_error(ref.data(), matC.data(), ref.size(), utils::fp16(0.2f));
-  }
-};
-#ifdef BTLA_UT_SYCL
-static UT_SyclS4HGemm sUT_SyclS4HGemm;
-#endif
 
 class UT_SyclInt4Dequant {
  public:
@@ -377,9 +88,7 @@ class UT_SyclInt4Dequant {
     buffer_error(refNT.data(), dequant.data(), dequant.size(), 0.001f);
   }
 };
-#ifdef BTLA_UT_SYCL
 static UT_SyclInt4Dequant sUT_SyclInt4Dequant;
-#endif
 
 class UT_SyclS4Gemv {
  public:
@@ -429,8 +138,6 @@ class UT_SyclS4Gemv {
     int constexpr SgSize = 16;
     int constexpr TileK = 2;
     int constexpr GroupK = SgSize * TileK;
-    sycl::range<1> group{SgSize};
-    sycl::range<1> problem{n * SgSize};
     auto S_d = dS.data();
     auto A_d = dA.data();
     auto B_d = dB.data();
@@ -470,8 +177,6 @@ class UT_SyclS4Gemv {
     int constexpr SgSize = 16;
     int constexpr TileK = 32;
     int constexpr GroupK = SgSize * TileK;
-    sycl::range<1> group{SgSize};
-    sycl::range<1> problem{n * SgSize};
     auto S_d = dS.data();
     auto A_d = dA.data();
     auto B_d = dB.data();
@@ -483,9 +188,7 @@ class UT_SyclS4Gemv {
     buffer_error(refC.data(), C.data(), C.size(), utils::fp16(0.1f));
   }
 };
-#ifdef BTLA_UT_SYCL
 static UT_SyclS4Gemv sUT_SyclS4Gemv;
-#endif
 
 void mha_sref(float* Q, float* K, float* V, float* S, float* O, int batch, int seq, int seqA, int hnum, int hsize) {
   avector<float> tmps(seqA);
@@ -513,7 +216,7 @@ void mha_sref(float* Q, float* K, float* V, float* S, float* O, int batch, int s
         }
         float sums = 0.f;
         for (int jj = 0; jj < seqA; jj++) {
-          tmps[jj] = std::expf(tmps[jj] - maxs);
+          tmps[jj] = expf(tmps[jj] - maxs);
           sums += tmps[jj];
         }
         sums = 1.f / sums;
@@ -610,17 +313,17 @@ class UT_MHASgemm {
                            int jj = wg_loc_id * 2;
                            for (; jj < seq_acc_pad; jj += WgSize * 2) {
                              auto s2 = *(TC*)&slm[jj];
-                             s2[0] = std::expf(s2[0] - fmax);
-                             s2[1] = std::expf(s2[1] - fmax);
+                             s2[0] = expf(s2[0] - fmax);
+                             s2[1] = expf(s2[1] - fmax);
                              fsums += s2[0];
                              fsums += s2[1];
                              *(TC*)&slm[jj] = s2;
                            }
                            if (jj < seq_acc) {
-                             slm[jj] = std::expf(float(slm[jj]) - fmax);
+                             slm[jj] = expf(float(slm[jj]) - fmax);
                              fsums += slm[jj];
                              if (jj + 1 < seq_acc) {
-                               slm[jj + 1] = std::expf(float(slm[jj + 1]) - fmax);
+                               slm[jj + 1] = expf(float(slm[jj + 1]) - fmax);
                                fsums += slm[jj + 1];
                              }
                            }
@@ -694,7 +397,6 @@ class UT_MHASgemm {
     auto Sptr = dS.data();
     auto Optr = dO.data();
     int nf = hnum * hsize;
-    sycl::range<1> num_items{batch * seq * hnum};
     int n_past = seqA - seq;
     const float attn_scale = 1.0f / sqrtf(static_cast<float>(hsize));
     if (seq > 1) {
@@ -729,7 +431,7 @@ class UT_MHASgemm {
     //    }
     //    float sums = 0.f;
     //    for (int jj = 0; jj < seqA; jj++) {
-    //      tmps[jj] = std::expf(tmps[jj] - maxs);
+    //      tmps[jj] = expf(tmps[jj] - maxs);
     //      sums += tmps[jj];
     //    }
     //    sums = 1.f / sums;
@@ -755,8 +457,6 @@ class UT_MHASgemm {
     buffer_error(O.data(), OTar.data(), O.size(), 0.001f);
   }
 };
-#ifdef BTLA_UT_SYCL
-#endif
 static UT_MHASgemm sUT_MHASgemm;
 }  // namespace sycl_ut
 }  // namespace bestla

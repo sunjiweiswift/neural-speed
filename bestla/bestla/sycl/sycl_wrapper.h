@@ -62,7 +62,7 @@ class Launcher {
       cgh.parallel_for(
           sycl::nd_range<2>(problem, group),
           [=](sycl::nd_item<2> it) [[sycl::reqd_work_group_size(
-              1, GemmCore::WgM,
+              GemmCore::WgM,
               GemmCore::WgN)]] [[intel::kernel_args_restrict]] [[intel::reqd_sub_group_size(GemmCore::SgSize)]] {
             sycl_utils::nd_item_helper<GemmCore> helper(it);
             if constexpr (debug) {
@@ -154,7 +154,7 @@ class LauncherWOQ {
       cgh.parallel_for(
           sycl::nd_range<2>(problem, group),
           [=](sycl::nd_item<2> it) [[sycl::reqd_work_group_size(
-              1, GemmCore::WgM,
+              GemmCore::WgM,
               GemmCore::WgN)]] [[intel::kernel_args_restrict]] [[intel::reqd_sub_group_size(GemmCore::SgSize)]] {
             sycl_utils::nd_item_helper<GemmCore> helper(it);
             if constexpr (debug) {
