@@ -128,7 +128,7 @@ static inline float get_ut_err(BTLA_DTYPE qtype) {
 
 template <typename _T>
 inline _T randn(_T minval, _T maxval) {
-  auto normval = (rand() + 0.5f) / (RAND_MAX + 1.f);
+  auto normval = (rand() + 0.5f) / (static_cast<float>(RAND_MAX) + 1.f);
   auto _gap = maxval - minval;
   return static_cast<_T>(_gap * normval + minval);
 }

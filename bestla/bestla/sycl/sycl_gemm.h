@@ -20,6 +20,9 @@
 #include <sycl/sycl.hpp>
 
 namespace bestla {
+
+using bf16 = sycl::ext::oneapi::bfloat16;
+
 namespace sycl_gemm {
 namespace xve {
 class Config_Fp32Fp32Fp32 {
@@ -147,6 +150,23 @@ class Config_Fp16Fp16Fp16 {
   using data_type_acc = sycl::half;
 };
 
+class Config_Bf16Bf16Bf16 {
+ public:
+  static int constexpr sg_size = 16;
+  static int constexpr sg_m = 16;
+  static int constexpr sg_n = 4;
+  static int constexpr sg_k = 32;
+  static int constexpr unroll_k = 4;
+  static int constexpr wg_m = 16;
+  static int constexpr wg_n = 32;
+
+  using data_type_a = sycl::ext::oneapi::bfloat16;
+  using data_type_b = sycl::ext::oneapi::bfloat16;
+  using data_type_c = sycl::ext::oneapi::bfloat16;
+  using data_type_acc = float;
+};
+
+
 template <class ConfigT>
 class HGemmCoreSharedB {
  public:
@@ -231,6 +251,7 @@ class HGemmCoreSharedB {
 };
 
 using DefaultHGemmCore = HGemmCoreSharedB<Config_Fp16Fp16Fp16>;
+using DefaultBGemmCore = HGemmCoreSharedB<Config_Bf16Bf16Bf16>;
 }  // namespace xve
 
 }  // namespace sycl_gemm
