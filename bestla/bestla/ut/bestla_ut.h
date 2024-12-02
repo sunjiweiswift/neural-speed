@@ -135,7 +135,7 @@ inline _T randn(_T minval, _T maxval) {
 
 template <>
 inline utils::bf16 randn(utils::bf16 minval, utils::bf16 maxval) {
-  auto normval = (rand() + 0.5f) / (RAND_MAX + 1.f);
+  auto normval = (rand() + 0.5f) / (static_cast<float>(RAND_MAX) + 1.f);
   auto _gap = maxval.tofloat() - minval.tofloat();
   utils::bf16 tmp;
   tmp.fromfloat(_gap * normval + minval.tofloat());
@@ -144,7 +144,7 @@ inline utils::bf16 randn(utils::bf16 minval, utils::bf16 maxval) {
 
 template <>
 inline utils::fp16 randn(utils::fp16 minval, utils::fp16 maxval) {
-  auto normval = (rand() + 0.5f) / (RAND_MAX + 1.f);
+  auto normval = (rand() + 0.5f) / (static_cast<float>(RAND_MAX) + 1.f);
   auto _gap = float(maxval) - float(minval);
   return utils::fp16(_gap * normval + float(minval));
 }

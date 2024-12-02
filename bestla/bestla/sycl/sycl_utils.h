@@ -106,5 +106,28 @@ class nd_item_helper {
   constexpr inline int item_g_n() const { return sg_g_n() + sg_id() * GemmCoreT::TileN; }
 };
 
+using bf16 = sycl::ext::oneapi::bfloat16;
+using bf16x2 = sycl::vec<bf16, 2>;
+using bf16x8 = sycl::vec<bf16, 8>;
+
+template <typename DstT>
+inline sycl::vec<DstT, 2> convert_(uint8_t source, DstT scale) {
+  sycl::vec<int8_t, 2> src = {static_cast<int8_t>(source & 0x0f),
+                              static_cast<int8_t>(source >> 4)};
+  sycl::vec<DstT, 2> result = src.template convert<DstT>();
+  result = result * scale;
+  return result;
+}
+
+template <typename DstT>
+inline sycl::vec<DstT, 2> convert_(uint8_t source, DstT scale, DstT zps) {
+  sycl::vec<int8_t, 2> src = {static_cast<int8_t>(source & 0x0f),
+                              static_cast<int8_t>(source >> 4)};
+  sycl::vec<DstT, 2> result = src.template convert<DstT>();
+  result = result * scale + zps;
+  return result;
+}
+
+
 }  // namespace sycl_utils
 }  // namespace bestla

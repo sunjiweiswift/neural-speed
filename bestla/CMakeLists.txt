@@ -108,7 +108,6 @@ endfunction()
 set(benchmark_srcs ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/ut/bestla_benchmark.cpp)
 list(APPEND benchmark_srcs ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}/ut/sycl_benchmark.cpp)
 
-
 file(GLOB srcs ${PROJECT_NAME}/ut/*.cc ${PROJECT_NAME}/ut/*.cpp) #compile everything even run parts of UTs
 file(GLOB sycl_srcs ${PROJECT_NAME}/ut/sycl*)
 if(NOT BTLA_SYCL)
@@ -120,3 +119,7 @@ include_directories(${PROJECT_NAME})
 add_executable(${PROJECT_NAME}_ut ${srcs} ${headers} ${sycl_headers} ${ut_headers})
 add_compile_definitions(BTLA_UT_SYCL)
 target_link_libraries(${PROJECT_NAME}_ut PRIVATE ${PROJECT_NAME} ${sycl_libs})
+
+add_executable(${PROJECT_NAME}_benchmark ${benchmark_srcs} ${headers} ${sycl_headers} ${ut_headers})
+add_compile_definitions(BTLA_UT_SYCL)
+target_link_libraries(${PROJECT_NAME}_benchmark PRIVATE ${PROJECT_NAME} ${sycl_libs})

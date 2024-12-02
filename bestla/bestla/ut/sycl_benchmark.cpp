@@ -85,7 +85,7 @@ class Benchmark_Fp32Fp32 {
     benchmark<LOG>(m, n, k, batch, dA.data(), dB.data(), dC.data(), testtime);
   }
 };
-#ifdef BTLA_UT_SYCL
+#ifdef BTLA_UT_BENCHMARK
 static Benchmark_Fp32Fp32 sBenchmark_Fp32Fp32;
 #endif
 
@@ -152,7 +152,7 @@ class Benchmark_Fp16Fp16 {
     benchmark<LOG>(m, n, k, batch, dA.data(), dB.data(), dC.data(), testtime);
   }
 };
-#ifdef BTLA_UT_SYCL
+#ifdef BTLA_UT_BENCHMARK
 static Benchmark_Fp16Fp16 sBenchmark_Fp16Fp16;
 #endif
 
@@ -308,7 +308,7 @@ class Benchmark_S4Fp32Fp32 {
     }
   }
 };
-#ifdef BTLA_UT_SYCL
+#ifdef BTLA_UT_BENCHMARK
 static Benchmark_S4Fp32Fp32 sBenchmark_S4Fp32Fp32;
 #endif
 
@@ -320,8 +320,8 @@ class Benchmark_S4Fp16Fp16 {
     benchmark_all(1, 4096, 11008, 128);
     benchmark_all(1, 4096, 4096 * 4, 128);
     benchmark_all(1, 4096 * 3, 4096, 128);
-    benchmark_all(1024, 4096, 4096, 32);
-    benchmark_all(2048, 4096 * 3, 4096, 32);
+    // benchmark_all(1024, 4096, 4096, 32);
+    // benchmark_all(2048, 4096 * 3, 4096, 32);
   }
 
   using AType = sycl::half;
@@ -367,65 +367,7 @@ class Benchmark_S4Fp16Fp16 {
     double flops = double(psize) / log.min_val / 1e6;
     printf(" %s Flops:%.3f\n", log.get_log_str(), flops);
   }
-#if 0
-  template <typename LOG_T>
-  void benchmark_gemmT(int m, int n, int k, int blocksize, int batch, AType* A, uint8_t* B, BType* B_scale, CType* C,
-                       float timems) {
-    LOG_T log;
-    auto dev = UT_Device::get();
-    auto q = dev->getQueue();
-    utils::timer<std::chrono::milliseconds> tm;
-    auto A_d = (const AType*)A;
-    auto B_d = B;
-    auto C_d = C;
-    auto S_d = B_scale;
-    auto psize = (size_t)m * n * k * 2;
-    int blks = k / blocksize;
-    tm.start();
-    while (tm.stop() < timems) {
-      for (size_t i = 0; i < batch; i++) {
-        auto ev = KernelTLauncher::compute({m, n, k, blocksize, {A_d, k}, {B_d, S_d, blks}, {C_d, n}}, q);
-        ev.wait();
-        log.add(event_helper::execute_time(ev) * 1000);
-        if (tm.stop() >= timems) {
-          break;
-        }
-      }
-    }
-    log.record();
-    double flops = double(psize) / log.min_val / 1e6;
-    printf(" %s Flops:%.3f\n", log.get_log_str(), flops);
-  }
 
-  template <typename LOG_T>
-  void benchmark_gemmT_DQ(int m, int n, int k, int blocksize, int batch, AType* A, uint8_t* B, BType* B_scale,
-                          BType* DQB, CType* C, float timems) {
-    LOG_T log;
-    auto dev = UT_Device::get();
-    auto q = dev->getQueue();
-    utils::timer<std::chrono::milliseconds> tm;
-    auto A_d = (const AType*)A;
-    auto B_d = B;
-    auto C_d = C;
-    auto S_d = B_scale;
-    auto psize = (size_t)m * n * k * 2;
-    int blks = k / blocksize;
-    tm.start();
-    while (tm.stop() < timems) {
-      for (size_t i = 0; i < batch; i++) {
-        auto ev = KernelTLauncher::compute({m, n, k, blocksize, {A_d, k}, {B_d, S_d, blks}, {C_d, n}}, q);
-        ev.wait();
-        log.add(event_helper::execute_time(ev) * 1000);
-        if (tm.stop() >= timems) {
-          break;
-        }
-      }
-    }
-    log.record();
-    double flops = double(psize) / log.min_val / 1e6;
-    printf(" %s Flops:%.3f\n", log.get_log_str(), flops);
-  }
-#endif
   template <typename LOG_T>
   void benchmark_gemv_T2(int m, int n, int k, int blocksize, int batch, AType* A, uint8_t* B, BType* B_scale, CType* C,
                          float timems) {
@@ -477,9 +419,80 @@ class Benchmark_S4Fp16Fp16 {
     }
   }
 };
-#ifdef BTLA_UT_SYCL
 static Benchmark_S4Fp16Fp16 sBenchmark_S4Fp16Fp16;
-#endif
+
+class Benchmark_S4x8Fp16Fp16 {
+ public:
+  Benchmark_S4x8Fp16Fp16() {
+    UT_START();
+    benchmark_all(1, 4096, 4096, 128);
+    benchmark_all(1, 4096, 11008, 128);
+    benchmark_all(1, 4096, 4096 * 4, 128);
+    benchmark_all(1, 4096 * 3, 4096, 128);
+  }
+
+  using AType = sycl::half;
+  using BType = sycl::half;
+  using CType = sycl::half;
+  using GemmT = xve::DefaultHGemmCore;
+  template <class GCT>
+  using ProAT = sycl_prologue_a::ActivationBase<GCT, sycl::half>;
+  template <class GCT>
+  using ProBTransT = sycl_prologue_b::WeightS4x8Trans<GCT, sycl::half>;
+  template <class GCT>
+  using EpiT = sycl_epilogue::OutputBase<GCT, sycl::half>;
+  using KernelTLauncher = sycl_wrapper::LauncherWOQ<ProAT, ProBTransT, EpiT, GemmT>;
+
+  template <typename LOG_T>
+  void benchmark_gemv_T2(int m, int n, int k, int blocksize, int batch, AType* A, int32_t* B,
+                         BType* B_scale, BType* B_zp, CType* C,
+                         float timems) {
+    LOG_T log;
+    auto dev = UT_Device::get();
+    auto q = dev->getQueue();
+    utils::timer<std::chrono::milliseconds> tm;
+    auto A_d = (const AType*)A;
+    auto B_d = B;
+    auto C_d = C;
+    auto S_d = B_scale;
+    auto Z_d = B_zp;
+    auto psize = (size_t)m * n * k * 2;
+    int blks = k / blocksize;
+    tm.start();
+    while (tm.stop() < timems) {
+      for (size_t i = 0; i < batch; i++) {
+        auto ev = ProBTransT<GemmT>::gemv(A_d, {B_d, S_d, blks, Z_d}, C_d, n, k, blocksize, q);
+        ev.wait();
+        log.add(event_helper::execute_time(ev) * 1000);
+        if (tm.stop() >= timems) {
+          break;
+        }
+      }
+    }
+    log.record();
+    double flops = double(psize) / log.min_val / 1e6;
+    printf(" %s Flops:%.3f\n", log.get_log_str(), flops);
+  }
+
+  void benchmark_all(int m, int n, int k, int blocksize) {
+    auto memsize = gemm_memsize(m, n, k, BTLA_DTYPE::F16, BTLA_DTYPE::F16, BTLA_DTYPE::F16);
+    auto batch = auto_batch(memsize);
+    printf("%d %d %d %d %s %s %s\n", m, n, k, batch, bestla_dtype_str(BTLA_DTYPE::F16),
+           bestla_dtype_str(BTLA_DTYPE::F16), bestla_dtype_str(BTLA_DTYPE::F16));
+
+    using LOG = timer_statistics_logger<TestMs * 2>;
+    float testtime = float(TestMs);
+    auto dev = UT_Device::get();
+    auto q = dev->getQueue();
+    int blks = k / blocksize;
+    sycl_vector<AType> dA(size_t(m) * k * batch, q);
+    sycl_vector<CType> dC(size_t(m) * n * batch, q);
+    sycl_vector<BType> dB_scale(blks * n * batch, q), dB_zp(blks * n * batch, q);
+    sycl_vector<int32_t> dBs8(size_t(n) * k * batch / 8, q);
+    benchmark_gemv_T2<LOG>(m, n, k, blocksize, batch, dA.data(), dBs8.data(), dB_scale.data(), dB_zp.data(), dC.data(), testtime);
+  }
+};
+static Benchmark_S4x8Fp16Fp16 sBenchmark_S4x8Fp16Fp16;
 
 class Benchmark_DequantS4 {
  public:
@@ -726,7 +739,7 @@ class Benchmark_DequantS4 {
     printf(" %s Memory Bandwidth:%.3f\n", log.get_log_str(), flops);
   }
 };
-#ifdef BTLA_UT_SYCL
+#ifdef BTLA_UT_BENCHMARK
 static Benchmark_DequantS4 sBenchmark_DequantS4;
 #endif
 }  // namespace sycl_ut

@@ -591,7 +591,7 @@ class SchedulerKBlockS : public SchedulerBase<_GemmCore_T> {
   SchedulerKBlockS() = default;
   SchedulerKBlockS(const Config& config) { update(config); }
 
-  void update(const Config& config) {
+  void update(const Config& config) override {
     mKBlock = config.problem.dims[4];
     BaseScheduler::update(config);
     auto blks = utils::updiv(this->mBlock[2], mKBlock);

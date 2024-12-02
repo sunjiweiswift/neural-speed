@@ -151,6 +151,7 @@ class UT_SyclS4Gemv {
     ut_half(1024, 11008, 32);
     ut_half(1024, 1024, 32);
     ut_x8_half(1024, 1024, 32);
+    ut_x8_half(1024, 11008, 32);
   }
   using SGemm_t = xve::DefaultSGemmCore;
   template <class GCT>
@@ -400,7 +401,7 @@ class UT_MHASgemm {
                              T tmp_sum = tmp[0] + tmp[1];
                              T sum = 0;
                              for (int i = 0; i < SgSize; i += 1) {
-                               sum += sg.shuffle(tmp_sum, i);
+                               sum += group_broadcast(sg, tmp_sum, i);
                              }
                              slm[jj] = sum;
                              maxs = std::max(maxs, sum);
@@ -426,7 +427,7 @@ class UT_MHASgemm {
                            }
                            float gsum = 0;
                            for (int i = 0; i < SgSize; i += 1) {
-                             gsum += sg.shuffle(fsums, i);
+                             gsum += group_broadcast(sg, fsums, i);
                            }
                            T scale = 1.f / gsum;
                            jj = wg_loc_id * 2;
@@ -459,7 +460,7 @@ class UT_MHASgemm {
                              T tmp_sum = tmp[0] + tmp[1];
                              T sum = 0;
                              for (int i = 0; i < SgSize; i += 1) {
-                               sum += sg.shuffle(tmp_sum, i);
+                               sum += group_broadcast(sg, tmp_sum, i);
                              }
                              O[O_off + kk] = sum;
                            }

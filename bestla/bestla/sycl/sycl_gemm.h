@@ -98,7 +98,7 @@ class SGemmCoreSharedB {
         }
 #pragma unroll
         for (size_t im = 0; im < TileM; im++) {
-          auto tmpA = helper.sg.shuffle(regA[ikk + im / SgSize * UnrollK], im % SgSize);
+          auto tmpA = group_broadcast(helper.sg, regA[ikk + im / SgSize * UnrollK], im % SgSize);
 #pragma unroll
           for (size_t in = 0; in < TileN; in++) {
             accptr[im * TileN + in] += tmpA * tmpB[in];
@@ -166,6 +166,18 @@ class Config_Bf16Bf16Bf16 {
   using data_type_acc = float;
 };
 
+template <int sg_size_ = 16, int sg_m_ = 16, int sg_n_ = 4, int sg_k_ = 32, int unroll_k_ = 4, int wg_m_ =16, int wg_n_ = 32>
+class Config_Size {
+ public:
+  static int constexpr sg_size = sg_size_;
+  static int constexpr sg_m = sg_m_;
+  static int constexpr sg_n = sg_n_;
+  static int constexpr sg_k = sg_k_;
+  static int constexpr unroll_k = unroll_k_;
+  static int constexpr wg_m = wg_m_;
+  static int constexpr wg_n = wg_n_;
+};
+
 
 template <class ConfigT>
 class HGemmCoreSharedB {
@@ -214,7 +226,7 @@ class HGemmCoreSharedB {
         }
 #pragma unroll
         for (size_t im = 0; im < TileM; im++) {
-          auto tmpA = helper.sg.shuffle(regA[ikk + im / SgSize * UnrollK], im % SgSize);
+          auto tmpA = group_broadcast(helper.sg, regA[ikk + im / SgSize * UnrollK], im % SgSize);
 #pragma unroll
           for (size_t in = 0; in < TileN; in++) {
             accptr[im * TileN + in] += tmpA * tmpB[in];
